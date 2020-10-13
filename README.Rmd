@@ -1,0 +1,54 @@
+---
+title: "DWD Kennwerte"
+author: "Kmicha71"
+date: "13 10 2020"
+output:
+  html_document: 
+    keep_md: true
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Import packag
+
+```{r rdwd}
+#install.packages("rdwd")   # 
+require("rdwd")
+require("berryFunctions")
+require("pbapply")
+```
+
+## Add functions for adding indices
+
+
+## DWD Import
+
+```{r rdwd}
+
+read_dwd_daily_period <- function(station, period) {
+# select a dataset (e.g. last year's daily climate data from Potsdam city):
+# daily climate data for recent and historical time period
+  link <- selectDWD(station, res="daily", var="kl", per=period)
+  file <- dataDWD(link, read=FALSE)
+  climData1 <- readDWD(file, varnames=TRUE)
+  #
+  link <- selectDWD(station, res="daily", var="weather_phenomena", per=period)
+  file <- dataDWD(link, read=FALSE)
+  climData2 <- readDWD(file, varnames=TRUE) 
+  
+  climData <- merge(climData1, climData2, by.x="MESS_DATUM", by.y="MESS_DATUM")
+  return(climData)
+}
+
+read_dwd_daily <- function(station) {
+  climHist <- read_dwd_daily_period("Potsdam", "recent")
+  climRecent <- read_dwd_daily_period("Potsdam", "historical")
+  climData <- rbind(climHist, climRecent)
+  return(climData)    
+}
+
+clim <- read_dwd_daily("Potsdam")
+```
