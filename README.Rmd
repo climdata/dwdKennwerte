@@ -19,6 +19,8 @@ knitr::opts_chunk$set(echo = TRUE)
 require("rdwd")
 require("berryFunctions")
 require("pbapply")
+require("lubridate")
+require("dplyr")
 ```
 
 ## Add functions for adding indices
@@ -44,11 +46,82 @@ read_dwd_daily_period <- function(station, period) {
 }
 
 read_dwd_daily <- function(station) {
-  climHist <- read_dwd_daily_period("Potsdam", "recent")
-  climRecent <- read_dwd_daily_period("Potsdam", "historical")
+  climHist <- read_dwd_daily_period(station, "recent")
+  climRecent <- read_dwd_daily_period(station, "historical")
   climData <- rbind(climHist, climRecent)
+  climData <- climData[order(climData$MESS_DATUM),]
   return(climData)    
 }
 
-clim <- read_dwd_daily("Potsdam")
+read_dwd_yearly <- function(station) {
+  climDaily <- read_dwd_daily(station)
+  climDaily$year <- lubridate::year(as.Date(climDaily$MESS_DATUM, format = "%Y-%m-%d")); 
+  climDaily$month <- lubridate::month(as.Date(climDaily$MESS_DATUM, format = "%Y-%m-%d")); 
+  
+  climYearly <- climDaily[,c('year', 'month')]
+
+  climYearly$hotDays <- ifelse(climDaily$TXK.Lufttemperatur_Max > 30.0, 1, 0)
+  climYearly$summerDays <- ifelse((climDaily$TXK.Lufttemperatur_Max > 25.0), 1, 0)
+  climYearly$tropicalNights <- ifelse((climDaily$TNK.Lufttemperatur_Min > 20.0), 1, 0)
+  climYearly$frostDays <- ifelse((climDaily$TNK.Lufttemperatur_Min < 0.0), 1, 0)
+  climYearly$iceDays <- ifelse((climDaily$TXK.Lufttemperatur_Max < 0.0), 1, 0)
+  
+  climYearly$coolingDays <- ifelse((climDaily$TMK.Lufttemperatur > 18.3), 1, 0)
+  climYearly$coolingDegreeDays <- climYearly$coolingDays*(climDaily$TMK.Lufttemperatur - 18.3)  
+  climYearly$heatingDays <- ifelse((climDaily$TMK.Lufttemperatur < 15.0), 1, 0)
+  climYearly$heatingDegreeDays <- climYearly$heatingDays*(15.0 - climDaily$TMK.Lufttemperatur)
+  huglinMonths <- ifelse((climDaily$month >= 4) & (climDaily$month <= 9), 1, 0)
+  climYearly$huglinIndex <- huglinMonths*1.05*((climDaily$TMK.Lufttemperatur+climDaily$TXK.Lufttemperatur_Max)/2.0 - 10.0)
+  
+  climYearly$heavyRainDays <- ifelse((climDaily$RSK.Niederschlagshoehe > 25.0), 1, 0)
+  climYearly$dryDays <- ifelse((climDaily$RSK.Niederschlagshoehe < 1.0), 1, 0)
+  hydroSummerMonth <-  ifelse((climDaily$month >= 5) & (climDaily$month <= 10), 1, 0)
+  climYearly$summerPrecipitation <- hydroSummerMonth * climDaily$RSK.Niederschlagshoehe
+  # slightly wrong, as winter should reach into the following year 
+  climYearly$winterPrecipitation <- (1 - hydroSummerMonth) * climDaily$RSK.Niederschlagshoehe
+  
+  climYearly$sunHours <- climDaily$SDK.Sonnenscheindauer
+  climYearly$snowHeight <- climDaily$SHK_TAG.Schneehoehe
+  climYearly$clouds <- climDaily$NM.Bedeckungsgrad / 8.0
+  climYearly$fogDays <- climDaily$NEBEL.Nebel
+  climYearly$thunderstormDays <- climDaily$GEWITTER.Gewitter
+  climYearly$stormDays <- climDaily$STURM_8.Sturm_8Bft
+  climYearly$breezeDays <- climDaily$STURM_6.Sturm_6Bft
+  climYearly$dewDays <- climDaily$TAU.Tau
+  climYearly$hailDays <- climDaily$HAGEL.Hagel
+  
+   
+ climYearly <- climYearly %>%
+  group_by(year) %>%
+  summarise(hotDays = sum(hotDays),
+            summerDays = sum(summerDays),
+            tropicalNights = sum(tropicalNights),
+            frostDays = sum(frostDays),
+            iceDays = sum(iceDays),
+            coolingDays = sum(coolingDays),
+            coolingDegreeDays = sum(coolingDegreeDays),
+            heatingDays = sum(heatingDays),
+            heatingDegreeDays = sum(heatingDegreeDays),
+            huglinIndex = sum(huglinIndex),
+            heavyRainDays = sum(heavyRainDays),
+            dryDays = sum(dryDays),
+            summerPrecipitation = sum(summerPrecipitation),
+            winterPrecipitation = sum(winterPrecipitation),
+            sunHours = sum(sunHours),
+            snowHeight = sum(snowHeight),
+            clouds = mean(clouds),
+            fogDays = sum(fogDays),
+            thunderstormDays = sum(thunderstormDays),
+            stormDays = sum(stormDays),
+            breezeDays = sum(breezeDays),
+            dewDays = sum(dewDays),
+            hailDays = sum(hailDays),
+            dryDays = mean(dryDays)
+            )
+   
+  return(climYearly)
+}
+
+clim <- read_dwd_yearly("Potsdam")
+
 ```
