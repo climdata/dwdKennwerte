@@ -28,7 +28,7 @@ require("dplyr")
 
 ## DWD Import
 
-```{r rdwd}
+```{r functions}
 
 read_dwd_daily_period <- function(station, period) {
 # select a dataset (e.g. last year's daily climate data from Potsdam city):
@@ -122,6 +122,30 @@ read_dwd_yearly <- function(station) {
   return(climYearly)
 }
 
+#clim <- read_dwd_yearly("Feldberg / Schwarzwald")  -> error
 clim <- read_dwd_yearly("Potsdam")
+```
 
+```{r plotTs, fig.width=50, fig.height=50}
+require("ggplot2")
+mp <- ggplot()
+mp + geom_line(aes(y=clim$summerPrecipitation, x=clim$year), color="blue") + 
+     geom_line(aes(y=20*clim$heavyRainDays, x=clim$year), color="red")
+
+
+mp <- ggplot()
+mp + geom_point(aes(y=clim$summerPrecipitation, x=clim$heavyRainDays), color="blue")
+
+
+
+```
+
+
+```{r correlation, fig.width=50, fig.height=50}
+require("ggplot2")
+require("extrafont")
+#require("ggmap")
+library("psych")
+
+pairs.panels(clim)
 ```
